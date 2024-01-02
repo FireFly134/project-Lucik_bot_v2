@@ -1,0 +1,79 @@
+
+.base:
+    image: docker:latest
+    tags:
+      - docker
+    variables:
+      DOCKER_BUILDKIT: 1
+    rules:
+      - changes:
+          - .gitlab-ci.yml
+          - .ci/**/*
+          - $CHANGES_PATH
+          - $DOCKERFILE
+          - $DOCKERFILE.dockerignore
+    before_script:
+        - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    after_script:
+        - docker image prune -a
+
+.build_base:
+  extends: .base
+  stage: build
+  variables:
+    IMAGE_TAG_DEV: $IMAGE_TAG-$CI_JOB_ID
+    IMAGE_TAG_AMD: $IMAGE_TAG-amd
+    IMAGE_TAG_ARM: $IMAGE_TAG-arm
+    BUILD_ARM64: 'false'
+  script:
+    - docker build $BUILD_ARGS --progress=plain -f $DOCKERFILE -t $IMAGE_TAG_DEV .
+    - if [[ -n "${BEFORE_LINT}" ]]; then sh -c "$BEFORE_LINT"; fi 
+    - if [[ -n "${LINT_SCRIPT}" ]]; then docker run --rm $LINT_DOCKER_ARG $LINT_DOCKER_ARG_1
+        $IMAGE_TAG_DEV sh -c "$LINT_SCRIPT"; fi
+    - if [[ $BUILD_ARM64 = "true" ]]; then docker build $BUILD_ARGS --platform linux/arm64 --progress=plain -f $DOCKERFILE -t $IMAGE_TAG_ARM .  && docker push $IMAGE_TAG_ARM; fi
+    - docker tag $IMAGE_TAG_DEV $IMAGE_TAG_AMD
+    - docker push $IMAGE_TAG_AMD
+    - docker manifest create $IMAGE_TAG
+        --amend $IMAGE_TAG_AMD
+        `if [[ $BUILD_ARM64 = "true" ]]; then echo "--amend $IMAGE_TAG_ARM"; fi`
+    - docker manifest push $IMAGE_TAG
+
+.multi_arch_build_base:
+  extends: .base
+  stage: build
+  variables:
+      IMAGE_TAG_DEV: $IMAGE_TAG-$CI_JOB_ID
+      BUILD_ARGS: ''
+  before_script:
+      - docker buildx create --name main-$CI_JOB_ID --use
+      - !reference [.base, before_script]
+  script:
+    - docker buildx --builder main-$CI_JOB_ID build $BUILD_ARGS --progress=plain --push -f $DOCKERFILE -t $IMAGE_TAG_DEV .
+    - docker pull $IMAGE_TAG_DEV
+    - if [[ -n "${LINT_SCRIPT}" ]]; then docker run --rm $IMAGE_TAG_DEV sh -c "$LINT_SCRIPT"; fi
+    - docker tag $IMAGE_TAG_DEV $IMAGE_TAG
+    - docker push $IMAGE_TAG
+  after_script:
+      - !reference [.base, after_script]
+      - docker buildx rm main-$CI_JOB_ID
+
+.lint_base:
+  extends: .base
+  stage: lint
+  before_script:
+    - !reference [.base, before_script]
+    - docker pull $IMAGE_TAG
+  script:
+    - if [[ -n "$BEFORE_LINT" ]]; then sh -c "$BEFORE_LINT"; fi
+    - docker run --rm --name=$CI_JOB_ID-linting $LINT_DOCKER_ARG $LINT_DOCKER_ARG_1 
+        $IMAGE_TAG sh -c "$LINT_SCRIPT"
+    - if [[ -n "$AFTER_LINT" ]]; then sh -c "$AFTER_LINT"; fi
+
+.test_base:
+  extends: .base
+  stage: test
+  before_script:
+    - !reference [.base, before_script]
+    - docker pull $IMAGE_TAG
+  script:
+    - docker run --rm $IMAGE_TAG sh -c "$TEST_SCRIPT"

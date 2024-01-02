@@ -4,8 +4,8 @@ include: '/.ci/base.yaml'
 build ui bot ivea_corp:
   extends: .build_base
   variables:
-    IMAGE_TAG: $UI_CORP_BOT_IMAGE_TAG
-    DOCKERFILE: shared/dockerfiles/corp_bot
-    CHANGES_PATH: ui/bots/ivea_corp/**/*
+    IMAGE_TAG: $BOT_IMAGE_TAG
+    DOCKERFILE: shared/dockerfiles/bot
+    CHANGES_PATH: * *
     LINT_SCRIPT: "python3 -m black --check --diff --color . && python3 -m flake8 . && python3 -m mypy --color --pretty ."
     DOCKLE_ARGS: "-i CIS-DI-0010 -i CIS-DI-0001"

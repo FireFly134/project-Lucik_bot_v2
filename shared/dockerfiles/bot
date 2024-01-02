@@ -1,0 +1,17 @@
+FROM python:3.11-alpine
+
+ENV PYTHONFAULTHANDLER=1 \
+     PYTHONUNBUFFERED=1 \
+     PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /bots
+
+RUN pip install pipenv
+COPY ui/bots/ivea_corp/Pipfile .
+COPY ui/bots/ivea_corp/Pipfile.lock .
+COPY ui/bots/ivea_corp/pyproject.toml .
+
+RUN pipenv install --system --dev --deploy
+
+COPY ui/bots/ivea_corp/ ./ivea_corp/
+CMD ["python", "-m", "ivea_corp.ivea_corp_bot_v3"]

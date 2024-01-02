@@ -6,6 +6,6 @@ build ui bot ivea_corp:
   variables:
     IMAGE_TAG: $BOT_IMAGE_TAG
     DOCKERFILE: shared/dockerfiles/bot
-    CHANGES_PATH: * *
+    CHANGES_PATH: ./**/*
     LINT_SCRIPT: "python3 -m black --check --diff --color . && python3 -m flake8 . && python3 -m mypy --color --pretty ."
     DOCKLE_ARGS: "-i CIS-DI-0010 -i CIS-DI-0001"

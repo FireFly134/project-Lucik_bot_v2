@@ -1,7 +1,7 @@
 include: '/.ci/base.yaml'
 
 
-build ui bot ivea_corp:
+build bot:
   extends: .build_base
   variables:
     IMAGE_TAG: $BOT_IMAGE_TAG

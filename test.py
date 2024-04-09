@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from work import db
 
 
-engine = create_engine(db, encoding='ascii')
+engine = create_engine(db, encoding="ascii")
 
 info = pd.read_sql("SELECT * FROM user_id;", engine)
 print(info)

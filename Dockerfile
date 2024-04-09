@@ -4,14 +4,13 @@ ENV PYTHONFAULTHANDLER=1 \
      PYTHONUNBUFFERED=1 \
      PYTHONDONTWRITEBYTECODE=1
 
-WORKDIR /bots
+WORKDIR /usr/local/app
 
 RUN pip install pipenv
-COPY Pipfile .
-COPY Pipfile.lock .
-COPY pyproject.toml .
+COPY ./Pipfile* ./
 
 RUN pipenv install --system --dev --deploy
 
-COPY . .
-CMD ["python", "-m", "bot_v2"]
+
+COPY ./ ./
+CMD ["python", "main.py"]

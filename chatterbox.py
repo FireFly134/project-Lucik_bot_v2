@@ -23,11 +23,6 @@ async def get_chat_text_messages(
     update: Update, context: ContextTypes
 ) -> None:
     """Балтовня в чате"""
-    if update.effective_chat:
-
-        await bot.send_message(
-            chat_id=update.effective_chat.id, text=str(update.edited_message)
-        )
     if update.message:
         user_id = update.message.from_user.id  # записываем ID с телеги
         msg = update.message.text
@@ -84,8 +79,9 @@ async def get_chat_text_messages(
         and (chat_type == "supergroup" or chat_type == "group")
     ):
         info = pd.read_sql(
-            f"SELECT * FROM users WHERE user_id = '{update.effective_chat.id}';",
-            engine,
+            "SELECT * FROM users " "WHERE user_id = %(user_id)s;",
+            params={"user_id": update.effective_chat.id},
+            con=engine,
         )
         hours = int(info.loc[0, "time_change_KZ"])
         now = datetime.now()
@@ -117,11 +113,14 @@ async def get_chat_text_messages(
         except Exception as err:
             print(err)
         info = pd.read_sql(
-            f"SELECT * FROM clan_id WHERE clan_id = '{update.effective_chat.id}';",
-            engine,
+            "SELECT * FROM clan_id" "WHERE clan_id = %(clan_id)s;",
+            params={"clan_id": update.effective_chat.id},
+            con=engine,
         )
         user_name = pd.read_sql(
-            f"SELECT * FROM users WHERE user_id = '{user_id}';", engine
+            "SELECT * FROM users" "WHERE user_id = %(user_id)s;",
+            params={"user_id": user_id},
+            con=engine,
         )
         if len(info) == 0 and len(user_name) != 0:
             engine.execute(

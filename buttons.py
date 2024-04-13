@@ -31,7 +31,7 @@ async def send_button(
     return
 
 
-async def setting_buttonupdate(
+async def setting_button(
     update: Update, context: ContextTypes, sms: str
 ) -> None:
     """Вывод кнопок Настроек"""
@@ -79,7 +79,7 @@ async def setting_hero_button(
     return
 
 
-async def Subscription_button(
+async def subscription_button(
     update: Update, context: ContextTypes, sms: str
 ) -> None:
     """Подписки..."""
@@ -151,7 +151,7 @@ async def setting_admin_button(
     return
 
 
-async def helpMy_button(
+async def help_my_button(
     update: Update, context: ContextTypes, sms: str
 ) -> None:
     """Вывод кнопок помощи"""

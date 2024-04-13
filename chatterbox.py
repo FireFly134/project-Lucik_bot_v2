@@ -1,10 +1,6 @@
 import pandas as pd
 
-import telegram
-from telegram import (
-    ReplyKeyboardMarkup,
-    Update,
-)
+from telegram import Update
 from telegram.ext import ContextTypes
 
 from random import randint
@@ -12,9 +8,9 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import create_engine
 
-from work import TELEGRAM_TOKEN, url_engine
-
-bot = telegram.Bot(TELEGRAM_TOKEN)
+from send_msg_telegram import send_msg, send_sticker, del_msg, send_video
+from send_query_sql import insert_and_update_sql
+from work import url_engine, my_tid
 
 engine = create_engine(url_engine)
 
@@ -42,7 +38,7 @@ async def get_chat_text_messages(
         and ("спс" in msg.lower() or "спасиб" in msg.lower())
         and (chat_type == "supergroup" or chat_type == "group")
     ):
-        await bot.send_message(
+        await send_msg(
             chat_id=update.effective_chat.id,
             text="Всегда пожалуйста! ;)",
             reply_to_message_id=msg_id,
@@ -54,20 +50,20 @@ async def get_chat_text_messages(
     ):
         rand_num = randint(1, 3)
         if rand_num == 1:
-            await bot.send_message(
+            await send_msg(
                 chat_id=update.effective_chat.id,
                 text="Спасибо ☺️",
                 reply_to_message_id=msg_id,
             )
         elif rand_num == 2:
-            await bot.send_message(
+            await send_msg(
                 chat_id=update.effective_chat.id,
                 text="Рад стараться! ☺️",
                 reply_to_message_id=msg_id,
             )
         elif rand_num == 3:
             with open(f"./molodec.tgs", "rb") as sticker:
-                await bot.send_sticker(
+                await send_sticker(
                     chat_id=update.effective_chat.id,
                     sticker=sticker,
                     reply_to_message_id=msg_id,
@@ -98,7 +94,7 @@ async def get_chat_text_messages(
                 days=now.day + 1, hours=hours, minutes=30, seconds=0
             )
             time3 = time2 - time1
-        await bot.send_message(
+        await send_msg(
             chat_id=update.effective_chat.id,
             text="До обновления К.З. осталось " + str(time3),
             reply_to_message_id=msg_id,
@@ -106,14 +102,11 @@ async def get_chat_text_messages(
     elif "id" == msg.lower() and (
         chat_type == "supergroup" or chat_type == "group"
     ):
-        try:
-            await bot.delete_message(
-                chat_id=update.effective_chat.id, message_id=msg_id
-            )
-        except Exception as err:
-            print(err)
+        await del_msg(
+            chat_id=update.effective_chat.id, message_id=msg_id
+        )
         info = pd.read_sql(
-            "SELECT * FROM clan_id" "WHERE clan_id = %(clan_id)s;",
+            "SELECT * FROM clan_id WHERE clan_id = %(clan_id)s;",
             params={"clan_id": update.effective_chat.id},
             con=engine,
         )
@@ -123,20 +116,28 @@ async def get_chat_text_messages(
             con=engine,
         )
         if len(info) == 0 and len(user_name) != 0:
-            engine.execute(
-                f"INSERT INTO clan_id(clan_id, name_clan) VALUES('{update.effective_chat.id}', '{update.effective_chat.title}');"
+            await insert_and_update_sql(
+                "INSERT INTO clan_id(clan_id, name_clan) "
+                "VALUES(:clan_id, :name_clan);",
+                params={
+                    "clan_id": update.effective_chat.id,
+                    "name_clan": update.effective_chat.title,
+                },
+
             )
-            engine.execute(
-                f"INSERT INTO admins(user_id, name, name_clan) VALUES('{user_id}', '{user_name.loc[0,'name0']}', '{update.effective_chat.title}');"
+            await insert_and_update_sql(
+                "INSERT INTO admins(user_id, name, name_clan) "
+                "VALUES(:user_id, :name, :name_clan);",
+                params={
+                    "user_id": user_id,
+                    "name": user_name.loc[0, "name0"],
+                    "name_clan": update.effective_chat.title,
+                },
             )
-        await bot.send_message(
-            chat_id=943180118,
-            text="ID: "
-            + str(update.effective_chat.id)
-            + "\n name: "
-            + str(update.effective_chat.title)
-            + "\n 1й админ: "
-            + str(user_id),
+        await send_msg(
+            chat_id=my_tid,
+            text=f"ID: {update.effective_chat.id}\n name: "
+                f"{update.effective_chat.title}\n 1й админ: {user_id}",
         )
     elif (
         "люц" in msg.lower()
@@ -144,7 +145,7 @@ async def get_chat_text_messages(
         and ("денег" in msg.lower() or "монет" in msg.lower())
         and (chat_type == "supergroup" or chat_type == "group")
     ):
-        await bot.send_message(
+        await send_msg(
             chat_id=update.effective_chat.id,
             text="Не, не варик... сам в аду на съемной хате существую... =(",
             reply_to_message_id=msg_id,
@@ -154,7 +155,7 @@ async def get_chat_text_messages(
         and ("тут" in msg.lower() or "живой" in msg.lower())
         and (chat_type == "supergroup" or chat_type == "group")
     ):
-        await bot.send_message(
+        await send_msg(
             chat_id=update.effective_chat.id,
             text="Ну, а где мне еще быть!?",
             reply_to_message_id=msg_id,
@@ -204,7 +205,7 @@ async def get_chat_text_messages(
             fighter1 = randint(0, 100)
             fighter2 = randint(0, 100)
             if fighter1 == fighter2:
-                await bot.send_message(
+                await send_msg(
                     chat_id=update.effective_chat.id,
                     text=action1[action_num1]
                     + str(fighter[0])
@@ -214,21 +215,14 @@ async def get_chat_text_messages(
                     + action4[action_num4],
                 )
                 with open("./fight/fight2.mp4", "rb") as video:
-                    await bot.send_video(
+                    await send_video(
                         chat_id=update.effective_chat.id, video=video
                     )
-                await bot.send_message(
+                await send_msg(
                     chat_id=update.effective_chat.id,
                     text="Вы сражались очень долго, но потом устали и "
                     "помирились! 🤝 НИЧЬЯ 🤝 \n\n Шансы на победу:\n"
-                    + str(fighter[0])
-                    + ": "
-                    + str(fighter1)
-                    + "% \n"
-                    + str(fighter[1])
-                    + ": "
-                    + str(fighter1)
-                    + "%",
+                    f"{fighter[0]}: {fighter1}% \n{fighter[1]}: {fighter1}%",
                 )
             else:
                 if fighter1 > fighter2:
@@ -236,7 +230,7 @@ async def get_chat_text_messages(
                 else:
                     winer = 1
                 num = randint(1, 13)
-                await bot.send_message(
+                await send_msg(
                     chat_id=update.effective_chat.id,
                     text=action1[action_num1]
                     + str(fighter[0])
@@ -246,29 +240,21 @@ async def get_chat_text_messages(
                     + action4[action_num4],
                 )
                 with open(f"./fight/fight{num}.mp4", "rb") as video:
-                    await bot.send_video(
+                    await send_video(
                         chat_id=update.effective_chat.id, video=video
                     )
-                await bot.send_message(
+                await send_msg(
                     chat_id=update.effective_chat.id,
-                    text="Победил: 👑"
-                    + str(fighter[winer])
-                    + "👑\n\nШансы на победу:\n"
-                    + str(fighter[0])
-                    + ": "
-                    + str(fighter1)
-                    + "% \n"
-                    + str(fighter[1])
-                    + ": "
-                    + str(fighter2)
-                    + "%",
+                    text=f"Победил: 👑{fighter[winer]}👑\n\nШансы на победу:\n"
+                         f"{fighter[0]}: {fighter1}% \n"
+                         f"{fighter[1]}: {fighter2}%",
                 )
         else:
             with open("./fight/fightSelf.mp4", "rb") as video:
-                await bot.send_video(
+                await send_video(
                     chat_id=update.effective_chat.id, video=video
                 )
-            await bot.send_message(
+            await send_msg(
                 chat_id=update.effective_chat.id,
                 text="Ну ты просто дал сам себе в глаз, вырубился и уснул!🤕",
             )
@@ -282,14 +268,14 @@ async def get_chat_text_messages(
         and (chat_type == "supergroup" or chat_type == "group")
     ):
         with open("./balbes.tgs", "rb") as sticker:
-            await bot.send_sticker(
+            await send_sticker(
                 chat_id=update.effective_chat.id, sticker=sticker
             )
     else:
         if chat_type == "supergroup" or chat_type == "group":
             pass
         else:
-            await bot.send_message(
+            await send_msg(
                 chat_id=update.effective_chat.id,
                 text="Я тебя не понимаю, я еще не настолько продвинутый. "
                 "Нажми помощь, и там будут инструкции по применению ;) "

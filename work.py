@@ -7,5 +7,6 @@ name_db = os.getenv("POSTGRES_DB", "")
 PASSWD_DB = os.getenv("POSTGRES_PASSWORD", "")
 url_engine = f"postgresql://{login}:{PASSWD_DB}@{ip_server}:{port}/{name_db}"
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+my_tid = os.getenv("MY_TID")
 working_folder = "./"
 stop_word = ("stop", "стоп", "отмена")

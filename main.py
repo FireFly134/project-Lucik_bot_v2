@@ -1,5 +1,15 @@
 import random
-import buttons
+from buttons import (
+    help_button,
+    help_my_button,
+    new_button,
+    cancel_button,
+    edit_time_button,
+    setting_admin_button,
+    setting_button,
+    setting_hero_button,
+    subscription_button,
+)
 import chatterbox
 import logging
 from datetime import datetime, timedelta
@@ -9,7 +19,6 @@ from typing import Any
 import pandas as pd
 
 from sqlalchemy import create_engine
-from sqlalchemy import text as sql_text
 
 from telegram.ext import (
     Application,
@@ -34,11 +43,12 @@ from admin_functions import (
     admin_send_msg_all_user_clan,
     chat_sms,
 )
+from send_query_sql import insert_and_update_sql
 
 from work import (
     TELEGRAM_TOKEN,
     stop_word,
-    url_engine,
+    url_engine, my_tid,
 )
 
 logging.basicConfig(
@@ -62,7 +72,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 )
                 if not search_result.empty:
                     sms = f"Привет, {str(search_result['name0'].values[0])}"
-                    user(update, context, sms)
+                    await user(update, context, sms)
                 else:
                     await context.bot.send_message(
                         chat_id=update.effective_chat.id,
@@ -82,16 +92,22 @@ async def user(
     if update.effective_chat and context:
         if update.effective_chat.id in user_triger:
             user_triger.pop(update.effective_chat.id)
-        buttons.new_button(update, context, sms)
+        await new_button(update, context, sms)
 
 
 async def zero_pres(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
-    """принудительное обнуление камней"""
-    if update.message.from_user.id == 943180118:
-        engine.execute(
-            f"UPDATE users SET rock0 = '0', rock1 = '0', rock2 = '0',rock3 = '0',rock4 = '0';"
+    """Принудительное обнуление камней"""
+    if update.message.from_user.id == my_tid:
+        await insert_and_update_sql(
+            """UPDATE users SET
+            rock0 = '0',
+            rock1 = '0',
+            rock2 = '0',
+            rock3 = '0',
+            rock4 = '0';
+            """
         )
         await context.bot.send_message(
             chat_id=update.effective_chat.id, text="Обнулил!"
@@ -99,12 +115,22 @@ async def zero_pres(
 
 
 async def help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    search_result = engine.execute(
-        f"SELECT name0 FROM users WHERE user_id = '{str(update.effective_chat.id)}';"
-    ).fetchall()
-    if len(search_result) != 0:
-        sms = 'Напиши "Привет" чтобы проверить свой ник.\n Можешь кидать количество камней (цифрами) и спросить сколько у тебя камней.\nЗагляни в настройки пользователя, там можешь подписаться на напоминания по сбору халявной энергии или на напоминания по камням за час до смены К.З.(или отписаться)\nЕсли у тебя не один профель в игре, можешь добавить его ник и также кидать на него кол-во камней, но можно добавить не больше 5 героев!\nЕсли возникли проблемы с кнопками напиши /start (не помогло напиши мне @Menace134)'
-        buttons.new_button(update, context, sms)
+    search_result = pd.read_sql(
+        "SELECT name0 FROM users WHERE user_id = %(user_id)s;",
+        params={"user_id": update.effective_chat.id},
+        con=engine
+    )
+    if not search_result.empty:
+        sms = """Напиши "Привет" чтобы проверить свой ник.
+Можешь кидать количество камней (цифрами) и спросить сколько у тебя камней.
+Загляни в настройки пользователя, там можешь подписаться на напоминания по \
+сбору халявной энергии или на напоминания по камням за час до смены К.З.(или \
+отписаться)
+Если у тебя не один профель в игре, можешь добавить его ник и также кидать на \
+него кол-во камней, но можно добавить не больше 5 героев!
+Если возникли проблемы с кнопками напиши /start (не помогло напиши мне \
+@Menace134)"""
+        await new_button(update, context, sms)
         info = pd.read_sql("SELECT user_id FROM admins;", engine)
         admins = list(info.user_id.values)
         if update.effective_chat.id in admins:
@@ -199,7 +225,7 @@ async def add_rock(
         )
         rock = int(info.loc[0, f"rock{num}"])
         if rock == 0 or rock < sms:
-            engine.execute(
+            await insert_and_update_sql(
                 f"UPDATE users SET rock{num} = '{sms}' WHERE user_id = '{update.effective_chat.id}';"
             )
             rock_minus = 600 - sms
@@ -228,24 +254,30 @@ async def time_zone(
         user_id = update.message.from_user.id  # записываем ID с телеги
         if msg.lower() in stop_word:
             sms = "Отмена"
-            buttons.setting_hero_button(update, context, sms)
+            await setting_hero_button(update, context, sms)
             return
         else:
             if msg.isnumeric():
                 if 1 <= int(msg) <= 24:
                     print(tz)
                     if tz:  # КЗ
-                        engine.execute(
-                            f"UPDATE users SET time_change_KZ = '{msg}' WHERE user_id = {user_id}"
+                        await insert_and_update_sql(
+                            "UPDATE users SET time_change_KZ = :msg "
+                            "WHERE user_id = :user_id",
+                            params={"msg": msg,
+                                    "user_id": user_id}
                         )
                     else:  # энергия
-                        engine.execute(
-                            f"UPDATE users SET time_collection_energy = '{msg}' WHERE user_id = {user_id}"
+                        await insert_and_update_sql(
+                            f"UPDATE users SET time_collection_energy = :msg "
+                            "WHERE user_id = :user_id",
+                            params={"msg": msg,
+                                    "user_id": user_id}
                         )
                     sms = "Время умпешно установлено!\n Если Вы ошиблись или время поменяется, всегда можно изменить и тут.\n\n Для этого нажми ⚙️Настройка профиля⚙️ ---> Поменять время..."
                     if update.effective_chat.id in user_triger:
                         user_triger.pop(update.effective_chat.id)
-                    buttons.edit_time_button(update, context, sms)
+                    await edit_time_button(update, context, sms)
                 else:
                     await context.bot.send_message(
                         chat_id=update.effective_chat.id,
@@ -261,7 +293,7 @@ async def time_zone(
             text="Возникла ошибка!Пожалуйста напиши @Menace134 об этом.",
         )
         await context.bot.send_message(
-            chat_id=943180118,
+            chat_id=my_tid,
             text=update.message.from_user.first_name
             + " пытался изменить время...ОШИБКА",
         )
@@ -287,17 +319,24 @@ async def delete_person(
     num_pers = info.loc[0, "num_pers"]
     for i in range(num, num_pers):
         if i != 4:
-            engine.execute(
-                f"UPDATE users SET name{i} = '{info.loc[0,f'name{i+1}']}', rock{i} = '{info.loc[0,f'rock{i+1}']}' WHERE user_id = {update.effective_chat.id};"
+            await insert_and_update_sql(
+                f"UPDATE users SET name{i} = '{info.loc[0,f'name{i+1}']}', rock{i} = '{info.loc[0,f'rock{i+1}']}' "
+                "WHERE user_id = :user_id;",
+                params={"user_id": update.effective_chat.id}
             )
         else:
-            engine.execute(
-                f"UPDATE users SET name{i} = 0, rock{i} = 0 WHERE user_id = {update.effective_chat.id};"
+            await insert_and_update_sql(
+                f"UPDATE users SET name{i} = 0, rock{i} = 0 "
+                "WHERE user_id = :user_id;",
+                params={"user_id": update.effective_chat.id}
             )
-    engine.execute(
-        f"UPDATE users SET num_pers = {num_pers - 1} WHERE user_id = {update.effective_chat.id};"
+    await insert_and_update_sql(
+        "UPDATE users SET num_pers = :num_pers "
+        "WHERE user_id = :user_id;",
+        params={"num_pers": num_pers - 1,
+                "user_id": update.effective_chat.id}
     )
-    buttons.setting_hero_button(
+    await setting_hero_button(
         update, context, f'Герой с ником "{delName}" удален!'
     )
 
@@ -306,23 +345,23 @@ async def button(
     update: Update, context: CallbackContext
 ) -> None:  # реагирует на нажатие кнопок.
     query = update.callback_query
-    query.answer()
+    await query.answer()
     if "YES" in query.data:
-        update.callback_query.message.delete()
+        await update.callback_query.message.delete()
         if "-" in query.data:
             list_answer = query.data.split("-")
             if len(list_answer) > 2 and list_answer[1] == "DELETE":
                 num = int(list_answer[2])
-                delete_person(update, context, num)
+                await delete_person(update, context, num)
         else:
-            buttons.setting_hero_button(
+            await setting_hero_button(
                 update, context, "Отлично, будем знакомы)"
             )
         if update.effective_chat.id in user_triger:
             user_triger.pop(update.effective_chat.id)
 
     elif "NO" in query.data:
-        update.callback_query.message.delete()
+        await update.callback_query.message.delete()
         if "-" in query.data:
             list_answer = query.data.split("-")
             if len(list_answer) > 2 and list_answer[1] == "DELETE":
@@ -331,9 +370,9 @@ async def button(
                     engine,
                 )
                 num = int(info.loc[0, "num_pers"])
-                edit(update, context, num, info, True)
+                await edit(update, context, num, info, True)
         else:
-            query.edit_message_text(
+            await query.edit_message_text(
                 "Ок, давай попробуем снова. Какой у тебя ник в игре?"
             )
             user_triger[update.effective_chat.id] = {
@@ -344,10 +383,10 @@ async def button(
     elif "Add_Rock" in query.data:
         sms = str(query.data.split("-")[1])
         num = str(query.data.split("-")[2])
-        add_rock(update, context, sms, num)
+        await add_rock(update, context, sms, num)
     elif "delete" in query.data:
         num = str(query.data.split("-")[1])
-        update.callback_query.message.delete()
+        await update.callback_query.message.delete()
         info = pd.read_sql(
             f"SELECT name{num} FROM users WHERE user_id = {update.effective_chat.id};",
             engine,
@@ -371,7 +410,7 @@ async def button(
         pass
     elif "edit_name" in query.data:
         num = int(query.data.split("-")[1])
-        edit_name(update, context, num)
+        await edit_name(update, context, num)
 
 
 async def send_msg_all_user_clan(
@@ -379,7 +418,7 @@ async def send_msg_all_user_clan(
 ):
     user_id = update.effective_chat.id
     if update.message.text.lower() in stop_word:
-        buttons.setting_admin_button(
+        await setting_admin_button(
             update, context, "А, ну ок... (ничего не отправил!)"
         )
         return
@@ -405,7 +444,7 @@ async def send_msg_all_user_clan(
                     logging.error(
                         f"{admin.loc[i,'name']} отправил sms и {name} sms не получил"
                     )
-    buttons.setting_admin_button(update, context, "Все оповещены")
+    await setting_admin_button(update, context, "Все оповещены")
 
 
 async def manul_kv(
@@ -477,22 +516,28 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = update.message.text
         msg_id = update.message.message_id
         if msg.lower() in stop_word:
-            user(update, context, sms="Ок, отмена! Идем в главное меню.")
+            await user(update, context, sms="Ок, отмена! Идем в главное меню.")
         if update.effective_chat.id in user_triger:
             triger = user_triger[update.effective_chat.id]["triger"]
             if msg.lower() in stop_word:
-                user(update, context, sms="Ок, отмена! Идем в главное меню.")
+                await user(update, context, sms="Ок, отмена! Идем в главное меню.")
             if triger == "reg_start":
                 if msg.lower() != "/help":
                     name = msg  # после вопроса как звать записываем имя
                     if user_triger[update.effective_chat.id]["first"]:
                         if user_triger[update.effective_chat.id]["rename"]:
-                            engine.execute(
-                                f"UPDATE users SET name0 = '{name}' WHERE user_id = '{user_id}';"
+                            await insert_and_update_sql(
+                                "UPDATE users SET name0 = :name "
+                                "WHERE user_id = :user_id;",
+                                params={"name": name,
+                                        "user_id": user_id}
                             )
                         else:
-                            engine.execute(
-                                f"INSERT INTO users(user_id, name0) VALUES('{user_id}', '{name}');"
+                            await insert_and_update_sql(
+                                "INSERT INTO users(user_id, name0) "
+                                "VALUES(:user_id, :name);",
+                                params={"name": name,
+                                        "user_id": user_id}
                             )
                     else:
                         info = pd.read_sql(
@@ -500,7 +545,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             engine,
                         )
                         num_pers = int(info.loc[0, "num_pers"])
-                        engine.execute(
+                        await insert_and_update_sql(
                             f"UPDATE users SET name{num_pers-1} = '{name}', num_pers = '{num_pers+1}' WHERE user_id = '{user_id}';"
                         )
                     keyboard = [
@@ -522,22 +567,25 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     engine,
                 )
                 if len(info) != 0:
-                    engine.execute(
+                    await insert_and_update_sql(
                         f"UPDATE users SET name{num} = '{name}' WHERE user_id = {user_id}"
                     )
                     sms = 'теперь тебя зовут: "' + name + '"!'
                     await context.bot.send_message(chat_id=user_id, text=sms)
             elif triger == "edit_send":
                 if msg.lower() in stop_word:
-                    buttons.setting_admin_button(update, context, "Отмена")
+                    await setting_admin_button(update, context, "Отмена")
                     return
                 else:
-                    buttons.setting_admin_button(update, context, "Сохранил")
-                    engine.execute(
-                        f"UPDATE admins SET text_for_clan = '{msg}' WHERE user_id = {user_id}"
+                    await setting_admin_button(update, context, "Сохранил")
+                    await insert_and_update_sql(
+                        "UPDATE admins SET text_for_clan = :msg "
+                        "WHERE user_id = :user_id",
+                        params={"msg": msg,
+                                "user_id": user_id}
                     )
             elif triger == "send_msg_all_user_clan":
-                send_msg_all_user_clan(update, context, msg)
+                await send_msg_all_user_clan(update, context, msg)
             elif triger == "send_chat":
                 admin = pd.read_sql(
                     f"SELECT name_clan, name FROM admins WHERE user_id = '{user_id}';",
@@ -549,24 +597,24 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 try:
                     if msg.lower() in stop_word:
-                        buttons.new_button(update, context, "Отмена")
+                        await new_button(update, context, "Отмена")
                         return
                     else:
                         await context.bot.send_message(
                             chat_id=clan_id.loc[0, "clan_id"], text=msg
                         )
-                        buttons.new_button(update, context, "Отправлено!")
+                        await new_button(update, context, "Отправлено!")
                 except Exception:
                     print(
                         f"{admin.loc[0,'name']} отправил sms в чат, но произошла ошибка!"
                     )
-                    buttons.new_button(
+                    await new_button(
                         update,
                         context,
                         "В чат sms не ушло...хз почему, ошибка!",
                     )
             elif triger == "time_zone":
-                time_zone(
+                await time_zone(
                     update,
                     context,
                     msg,
@@ -621,7 +669,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 ]
                             ]
                     else:
-                        add_rock(
+                        await add_rock(
                             update, context, int(sms), 0
                         )  # передаем для записи камней
                 else:
@@ -657,7 +705,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         reply_markup=InlineKeyboardMarkup(keyboard),
                     )
                 else:
-                    print_rock(update, context, info, 0)
+                    await print_rock(update, context, info, 0)
             elif (
                 "прив" in msg.lower() and update.message.chat.type == "private"
             ) or (
@@ -784,25 +832,25 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_to_message_id=msg_id,
                 )
                 sms = "Рейд открыт заходим согласно купленным билетам!"
-                send_msg_all_user_clan(update, context, sms)
+                await send_msg_all_user_clan(update, context, sms)
                 with open("video_2021-05-03_21-58-18.mp4", "rb") as video:
                     await context.bot.send_video(
                         chat_id=update.message.chat.id, video=video
                     )
             elif "Помощь" in msg:
-                buttons.helpMy_button(
+                await help_my_button(
                     update, context, "Вот, листай список, выбирай!"
                 )
             elif "Полезная информация" == msg:
-                buttons.help_button(
+                await help_button(
                     update, context, "Вот, листай список, выбирай!"
                 )
             elif "Отправить напоминалку игроку" in msg:
-                admin_menu(update, context)
+                await admin_menu(update, context)
             elif "Отправить ВСЕМ сообщение" in msg:
-                admin_send_msg_all_user_clan(update, context)
+                await admin_send_msg_all_user_clan(update, context)
             elif "Редактировать сообщение напоминалки" in msg:
-                admin_menu2(update, context)
+                await admin_menu2(update, context)
             elif "Добавить еще одного героя" in msg:
                 info = pd.read_sql(
                     f"SELECT * FROM users WHERE user_id = '{update.effective_chat.id}';",
@@ -810,7 +858,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 num = int(info.loc[0, "num_pers"])
                 if num <= 4:
-                    buttons.cancel_button(
+                    await cancel_button(
                         update, context, "Какой у тебя ник в игре?"
                     )
                     user_triger[update.effective_chat.id] = {
@@ -834,64 +882,72 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         delete = False
                     else:
                         delete = True
-                    edit(update, context, num, info, delete)
+                    await edit(update, context, num, info, delete)
                 else:
                     if "Переименовать героя" in msg:
-                        edit_name(update, context)
+                        await edit_name(update, context)
                     else:
                         await context.bot.send_message(
                             chat_id=update.effective_chat.id,
                             text="У тебя остался только 1 герой!",
                         )
             elif "Написать от имени бота🤖" == msg:
-                chat_sms(update, context)
+                await chat_sms(update, context)
             elif "Подписаться на напоминалку по камням" == msg:
-                engine.execute(
-                    f"UPDATE users SET subscription_rock = 'True' WHERE user_id = {user_id}"
+                await insert_and_update_sql(
+                    "UPDATE users SET subscription_rock = 'True' "
+                    "WHERE user_id = :user_id",
+                    params={"user_id": user_id}
                 )
-                buttons.setting_button(
+                await setting_button(
                     update,
                     context,
                     "Если у вас будет меньше 600 камней, я вам напобню об "
                     "этом за час до смены КЗ.",
                 )
             elif "Отписаться от напоминалки по камням" == msg:
-                engine.execute(
-                    f"UPDATE users SET subscription_rock = 'False' WHERE user_id = {user_id}"
+                await insert_and_update_sql(
+                    "UPDATE users SET subscription_rock = 'False' "
+                    "WHERE user_id = :user_id",
+                    params={"user_id": user_id}
                 )
-                buttons.setting_button(
+                await setting_button(
                     update,
                     context,
                     "Хорошо, больше не буду вам напоминать про камни... "
                     "Автоматически.",
                 )
             elif "Подписаться на напоминалку по сбору энергии" == msg:
-                engine.execute(
-                    f"UPDATE users SET subscription_energy = 'True' WHERE user_id = {user_id}"
+                await insert_and_update_sql(
+                    f"UPDATE users SET subscription_energy = 'True' "
+                    "WHERE user_id = :user_id",
+                    params={"user_id": user_id}
                 )
-                buttons.setting_button(
+                await setting_button(
                     update,
                     context,
                     "Теперь я буду напоминать Вам про энергию.",
                 )
             elif "Отписаться от напоминалки по сбору энергии" == msg:
-                engine.execute(
-                    f"UPDATE users SET subscription_energy = 'False' WHERE user_id = {user_id}"
+                await insert_and_update_sql(
+                    f"UPDATE users SET subscription_energy = 'False' "
+                    "WHERE user_id = :user_id",
+                    params={"user_id": user_id}
                 )
-                buttons.setting_button(
+                await setting_button(
                     update,
                     context,
                     "Хорошо, больше не буду вам напоминать про энергию...",
                 )
             elif "⚙️Настройка профиля⚙️" == msg:
-                buttons.setting_button(update, context, "Что будем изменять?")
+                await setting_button(update, context, "Что будем изменять?")
             elif "🔙Назад🔙" == msg:
-                buttons.new_button(
+                await new_button(
                     update, context, "Погнали, назад, в главное меню."
                 )
             elif "Настройки Админа" == msg:
                 if check_of_admin(user_id):
-                    buttons.setting_admin_button(
+                    await setting_admin_button(
                         update,
                         context,
                         "Для тебя, "
@@ -899,7 +955,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         + ", ещё есть такие команды",
                     )
             elif "Убрать игрока из клана☠" == msg:
-                admin_menu4(update, context)
+                await admin_menu4(update, context)
             elif "Проверить данные профиля" == msg:
                 info = pd.read_sql(
                     "SELECT * FROM users " "WHERE user_id = %(user_id)s;",
@@ -940,7 +996,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"{clan}",
                 )
             elif "Поменять время смены КЗ" == msg:
-                buttons.cancel_button(
+                await cancel_button(
                     update,
                     context,
                     "Во сколько по москве смена КЗ? Вводи только час.\n "
@@ -951,7 +1007,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     "tz": True,
                 }
             elif "Поменять время первого сбора энергии" == msg:
-                buttons.cancel_button(
+                await cancel_button(
                     update,
                     context,
                     "Во сколько по москве первый сбор энергии (синька и "
@@ -1008,17 +1064,17 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             elif "Необходимые герои для ивентов" == msg:
                 await necessary_heroes_for_events(update, context)
             elif "Маницпуляции с героем" == msg:
-                buttons.setting_hero_button(
+                await setting_hero_button(
                     update,
                     context,
                     "Тут ты можешь добавить или удалить героя, ну и при необходимости переименовать его",
                 )
             elif "Подписки..." == msg:
-                buttons.Subscription_button(update, context, "Смотри...")
+                await subscription_button(update, context, "Смотри...")
             elif "Поменять время..." == msg:
-                buttons.edit_time_button(update, context, "Меняй...")
+                await edit_time_button(update, context, "Меняй...")
             else:
-                chatterbox.get_chat_text_messages(update, context)
+                await chatterbox.get_chat_text_messages(update, context)
     except Exception as err:
         logging.error(f'В "handle_text" возникла ошибка - {err}')
 

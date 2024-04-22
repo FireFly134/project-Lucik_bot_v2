@@ -48,7 +48,8 @@ from send_query_sql import insert_and_update_sql
 from work import (
     TELEGRAM_TOKEN,
     stop_word,
-    url_engine, my_tid,
+    url_engine,
+    my_tid,
 )
 
 logging.basicConfig(
@@ -118,7 +119,7 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     search_result = pd.read_sql(
         "SELECT name0 FROM users WHERE user_id = %(user_id)s;",
         params={"user_id": update.effective_chat.id},
-        con=engine
+        con=engine,
     )
     if not search_result.empty:
         sms = """Напиши "Привет" чтобы проверить свой ник.
@@ -264,15 +265,13 @@ async def time_zone(
                         await insert_and_update_sql(
                             "UPDATE users SET time_change_KZ = :msg "
                             "WHERE user_id = :user_id",
-                            params={"msg": msg,
-                                    "user_id": user_id}
+                            params={"msg": msg, "user_id": user_id},
                         )
                     else:  # энергия
                         await insert_and_update_sql(
                             f"UPDATE users SET time_collection_energy = :msg "
                             "WHERE user_id = :user_id",
-                            params={"msg": msg,
-                                    "user_id": user_id}
+                            params={"msg": msg, "user_id": user_id},
                         )
                     sms = "Время умпешно установлено!\n Если Вы ошиблись или время поменяется, всегда можно изменить и тут.\n\n Для этого нажми ⚙️Настройка профиля⚙️ ---> Поменять время..."
                     if update.effective_chat.id in user_triger:
@@ -322,19 +321,17 @@ async def delete_person(
             await insert_and_update_sql(
                 f"UPDATE users SET name{i} = '{info.loc[0,f'name{i+1}']}', rock{i} = '{info.loc[0,f'rock{i+1}']}' "
                 "WHERE user_id = :user_id;",
-                params={"user_id": update.effective_chat.id}
+                params={"user_id": update.effective_chat.id},
             )
         else:
             await insert_and_update_sql(
                 f"UPDATE users SET name{i} = 0, rock{i} = 0 "
                 "WHERE user_id = :user_id;",
-                params={"user_id": update.effective_chat.id}
+                params={"user_id": update.effective_chat.id},
             )
     await insert_and_update_sql(
-        "UPDATE users SET num_pers = :num_pers "
-        "WHERE user_id = :user_id;",
-        params={"num_pers": num_pers - 1,
-                "user_id": update.effective_chat.id}
+        "UPDATE users SET num_pers = :num_pers " "WHERE user_id = :user_id;",
+        params={"num_pers": num_pers - 1, "user_id": update.effective_chat.id},
     )
     await setting_hero_button(
         update, context, f'Герой с ником "{delName}" удален!'
@@ -520,7 +517,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.effective_chat.id in user_triger:
             triger = user_triger[update.effective_chat.id]["triger"]
             if msg.lower() in stop_word:
-                await user(update, context, sms="Ок, отмена! Идем в главное меню.")
+                await user(
+                    update, context, sms="Ок, отмена! Идем в главное меню."
+                )
             if triger == "reg_start":
                 if msg.lower() != "/help":
                     name = msg  # после вопроса как звать записываем имя
@@ -529,15 +528,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             await insert_and_update_sql(
                                 "UPDATE users SET name0 = :name "
                                 "WHERE user_id = :user_id;",
-                                params={"name": name,
-                                        "user_id": user_id}
+                                params={"name": name, "user_id": user_id},
                             )
                         else:
                             await insert_and_update_sql(
                                 "INSERT INTO users(user_id, name0) "
                                 "VALUES(:user_id, :name);",
-                                params={"name": name,
-                                        "user_id": user_id}
+                                params={"name": name, "user_id": user_id},
                             )
                     else:
                         info = pd.read_sql(
@@ -581,8 +578,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await insert_and_update_sql(
                         "UPDATE admins SET text_for_clan = :msg "
                         "WHERE user_id = :user_id",
-                        params={"msg": msg,
-                                "user_id": user_id}
+                        params={"msg": msg, "user_id": user_id},
                     )
             elif triger == "send_msg_all_user_clan":
                 await send_msg_all_user_clan(update, context, msg)
@@ -897,7 +893,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await insert_and_update_sql(
                     "UPDATE users SET subscription_rock = 'True' "
                     "WHERE user_id = :user_id",
-                    params={"user_id": user_id}
+                    params={"user_id": user_id},
                 )
                 await setting_button(
                     update,
@@ -909,7 +905,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await insert_and_update_sql(
                     "UPDATE users SET subscription_rock = 'False' "
                     "WHERE user_id = :user_id",
-                    params={"user_id": user_id}
+                    params={"user_id": user_id},
                 )
                 await setting_button(
                     update,
@@ -921,7 +917,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await insert_and_update_sql(
                     f"UPDATE users SET subscription_energy = 'True' "
                     "WHERE user_id = :user_id",
-                    params={"user_id": user_id}
+                    params={"user_id": user_id},
                 )
                 await setting_button(
                     update,
@@ -932,7 +928,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await insert_and_update_sql(
                     f"UPDATE users SET subscription_energy = 'False' "
                     "WHERE user_id = :user_id",
-                    params={"user_id": user_id}
+                    params={"user_id": user_id},
                 )
                 await setting_button(
                     update,

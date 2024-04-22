@@ -102,9 +102,7 @@ async def get_chat_text_messages(
     elif "id" == msg.lower() and (
         chat_type == "supergroup" or chat_type == "group"
     ):
-        await del_msg(
-            chat_id=update.effective_chat.id, message_id=msg_id
-        )
+        await del_msg(chat_id=update.effective_chat.id, message_id=msg_id)
         info = pd.read_sql(
             "SELECT * FROM clan_id WHERE clan_id = %(clan_id)s;",
             params={"clan_id": update.effective_chat.id},
@@ -123,7 +121,6 @@ async def get_chat_text_messages(
                     "clan_id": update.effective_chat.id,
                     "name_clan": update.effective_chat.title,
                 },
-
             )
             await insert_and_update_sql(
                 "INSERT INTO admins(user_id, name, name_clan) "
@@ -137,7 +134,7 @@ async def get_chat_text_messages(
         await send_msg(
             chat_id=my_tid,
             text=f"ID: {update.effective_chat.id}\n name: "
-                f"{update.effective_chat.title}\n 1й админ: {user_id}",
+            f"{update.effective_chat.title}\n 1й админ: {user_id}",
         )
     elif (
         "люц" in msg.lower()
@@ -246,14 +243,12 @@ async def get_chat_text_messages(
                 await send_msg(
                     chat_id=update.effective_chat.id,
                     text=f"Победил: 👑{fighter[winer]}👑\n\nШансы на победу:\n"
-                         f"{fighter[0]}: {fighter1}% \n"
-                         f"{fighter[1]}: {fighter2}%",
+                    f"{fighter[0]}: {fighter1}% \n"
+                    f"{fighter[1]}: {fighter2}%",
                 )
         else:
             with open("./fight/fightSelf.mp4", "rb") as video:
-                await send_video(
-                    chat_id=update.effective_chat.id, video=video
-                )
+                await send_video(chat_id=update.effective_chat.id, video=video)
             await send_msg(
                 chat_id=update.effective_chat.id,
                 text="Ну ты просто дал сам себе в глаз, вырубился и уснул!🤕",

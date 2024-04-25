@@ -48,7 +48,7 @@ async def setting_hero_button(update: Update, sms: str) -> None:
     """Манапуляции с героем"""
     reply_keyboard = []
     info = pd.read_sql(
-        "SELECT COUNT(*) FROM heroes_of_users " "WHERE user_id = %(user_id)s;",
+        "SELECT COUNT(*) FROM heroes_of_users WHERE user_id = %(user_id)s;",
         params={"user_id": update.effective_chat.id},
         con=engine,
     )
@@ -76,12 +76,16 @@ async def setting_hero_button(update: Update, sms: str) -> None:
     return
 
 
-async def subscription_button(update: Update, sms: str) -> None:
+async def subscription_button(update: Update, sms: str, id_hero: int) -> None:
     """Подписки..."""
     subscription = pd.read_sql(
-        "SELECT subscription_rock, subscription_energy FROM users"
-        "WHERE user_id = %(user_id)s;",
-        params={"user_id": update.effective_chat.id},
+        "SELECT subscription_rock, subscription_energy, description_of_the_kz"
+        "FROM heroes_of_users"
+        "WHERE user_id = %(user_id)s AND id = %(id_hero)s;",
+        params={
+            "user_id": update.effective_chat.id,
+            "id_hero": id_hero,
+        },
         con=engine,
     )
     reply_keyboard = []
@@ -119,27 +123,28 @@ async def new_button(update: Update, sms: str) -> None:
         ["🆘 Помощь 🆘"],
         ["Сколько у меня камней?", "Полезная информация"],
         ["⚙️Настройка профиля⚙️"],
+        # ['💵Пожертвование моему создателю💸'],
     ]
-    info = pd.read_sql("SELECT user_id FROM admins;", engine)
-    if update.effective_chat.id in info["user_id"].to_list():
-        reply_keyboard += [["Настройки Админа"]]
+    # info = pd.read_sql("SELECT user_id FROM admins;", engine)
+    # if update.effective_chat.id in info["user_id"].to_list():
+    #     reply_keyboard += [["Настройки Админа"]]
     await send_button(update=update, sms=sms, reply_keyboard=reply_keyboard)
     return
 
 
-async def setting_admin_button(update: Update, sms: str) -> None:
-    """Вывод кнопок админовских настроек"""
-    reply_keyboard = [
-        [
-            "Отправить напоминалку игроку ✏️✉️🧍‍♂️",
-            "Редактировать сообщение напоминалки 📝",
-            "Написать от имени бота🤖",
-        ],
-        ["Отправить ВСЕМ сообщение ✏️✉️👨‍👩‍👧‍👦", "Убрать игрока из клана☠"],
-        ["🔙Назад🔙"],
-    ]
-    await send_button(update=update, sms=sms, reply_keyboard=reply_keyboard)
-    return
+# async def setting_admin_button(update: Update, sms: str) -> None:
+#     """Вывод кнопок админовских настроек"""
+#     reply_keyboard = [
+#         [
+#             "Отправить напоминалку игроку ✏️✉️🧍‍♂️",
+#             "Редактировать сообщение напоминалки 📝",
+#             "Написать от имени бота🤖",
+#         ],
+#         ["Отправить ВСЕМ сообщение ✏️✉️👨‍👩‍👧‍👦", "Убрать игрока из клана☠"],
+#         ["🔙Назад🔙"],
+#     ]
+#     await send_button(update=update, sms=sms, reply_keyboard=reply_keyboard)
+#     return
 
 
 async def help_my_button(update: Update, sms: str) -> None:
@@ -158,7 +163,7 @@ async def help_button(update: Update, sms: str) -> None:
     """Вывод кнопок помощи"""
     reply_keyboard = [
         ["Для новичков"],
-        ["Как зайти в игру, если по каким-то причинам не " "получается зайти"],
+        ["Как зайти в игру, если по каким-то причинам не получается зайти"],
         [
             "Кого качать в начале",
             "Кого качать для получения героев из событий?",

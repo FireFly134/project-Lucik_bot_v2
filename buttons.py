@@ -1,3 +1,5 @@
+from typing import Any
+
 import pandas as pd
 
 import telegram
@@ -5,7 +7,6 @@ from telegram import (
     ReplyKeyboardMarkup,
     Update,
 )
-from telegram.ext import ContextTypes
 
 from sqlalchemy import create_engine
 
@@ -31,9 +32,7 @@ async def send_button(
     return
 
 
-async def setting_button(
-    update: Update, context: ContextTypes, sms: str
-) -> None:
+async def setting_button(update: Update, sms: str) -> None:
     """Вывод кнопок Настроек"""
     reply_keyboard = [
         ["Маницпуляции с героем"],
@@ -45,9 +44,7 @@ async def setting_button(
     return
 
 
-async def setting_hero_button(
-    update: Update, context: ContextTypes, sms: str
-) -> None:
+async def setting_hero_button(update: Update, sms: str) -> None:
     """Манапуляции с героем"""
     reply_keyboard = []
     info = pd.read_sql(
@@ -79,9 +76,7 @@ async def setting_hero_button(
     return
 
 
-async def subscription_button(
-    update: Update, context: ContextTypes, sms: str
-) -> None:
+async def subscription_button(update: Update, sms: str) -> None:
     """Подписки..."""
     subscription = pd.read_sql(
         "SELECT subscription_rock, subscription_energy FROM users"
@@ -107,9 +102,7 @@ async def subscription_button(
     return
 
 
-async def edit_time_button(
-    update: Update, context: ContextTypes, sms: str
-) -> None:
+async def edit_time_button(update: Update, sms: str) -> None:
     """Поменять время..."""
     reply_keyboard = [
         ["Поменять время смены КЗ"],
@@ -120,7 +113,7 @@ async def edit_time_button(
     return
 
 
-async def new_button(update: Update, context: ContextTypes, sms: str) -> None:
+async def new_button(update: Update, sms: str) -> None:
     """Вывод кнопок"""
     reply_keyboard = [
         ["🆘 Помощь 🆘"],
@@ -134,9 +127,7 @@ async def new_button(update: Update, context: ContextTypes, sms: str) -> None:
     return
 
 
-async def setting_admin_button(
-    update: Update, context: ContextTypes, sms: str
-) -> None:
+async def setting_admin_button(update: Update, sms: str) -> None:
     """Вывод кнопок админовских настроек"""
     reply_keyboard = [
         [
@@ -151,9 +142,7 @@ async def setting_admin_button(
     return
 
 
-async def help_my_button(
-    update: Update, context: ContextTypes, sms: str
-) -> None:
+async def help_my_button(update: Update, sms: str) -> None:
     """Вывод кнопок помощи"""
     reply_keyboard = [
         ["Инструкция по применению"],
@@ -165,7 +154,7 @@ async def help_my_button(
     return
 
 
-async def help_button(update: Update, context: ContextTypes, sms: str) -> None:
+async def help_button(update: Update, sms: str) -> None:
     """Вывод кнопок помощи"""
     reply_keyboard = [
         ["Для новичков"],
@@ -186,9 +175,7 @@ async def help_button(update: Update, context: ContextTypes, sms: str) -> None:
     return
 
 
-async def cancel_button(
-    update: Update, context: ContextTypes, sms: str
-) -> None:
+async def cancel_button(update: Update, sms: str) -> None:
     reply_keyboard = [["Отмена"]]
     await send_button(update=update, sms=sms, reply_keyboard=reply_keyboard)
     return

@@ -11,6 +11,7 @@ python-telegram-bot = "20.7"
 beautifulsoup4 = "*"
 pytest = "*"
 requests = "*"
+black = "*"
 
 [dev-packages]
 black = "*"

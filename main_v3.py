@@ -717,6 +717,7 @@ async def update_time_change_clan_task(
 async def remin15(
     update: Update, context: ContextTypes.DEFAULT_TYPE, if_start: bool
 ) -> None:
+    """Start or stop remind time rock"""
     type_msg = await get_type_msg(update)
     chat_id = update.effective_chat.id
     msg_id = update[type_msg]["message_id"]

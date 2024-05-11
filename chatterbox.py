@@ -262,7 +262,7 @@ async def get_chat_text_messages(
         )
         and (chat_type == "supergroup" or chat_type == "group")
     ):
-        with open("./balbes.tgs", "rb") as sticker:
+        with open("stickers/balbes.tgs", "rb") as sticker:
             await send_sticker(
                 chat_id=update.effective_chat.id, sticker=sticker
             )

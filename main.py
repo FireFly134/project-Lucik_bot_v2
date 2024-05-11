@@ -787,7 +787,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         chat_id=update.message.chat.id,
                         text="Ану быстро в рейд! Кто последний тот ЛОХ!)",
                     )
-                    with open("AnimatedSticker.tgs", "rb") as sticker:
+                    with open("stickers/AnimatedSticker.tgs", "rb") as sticker:
                         await context.bot.send_sticker(
                             chat_id=update.message.chat.id, sticker=sticker
                         )
@@ -796,7 +796,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         chat_id=update.message.chat.id,
                         text="Рейд открыт заходим согласно купленным билетам",
                     )
-                    with open("sticker.webp", "rb") as sticker:
+                    with open("stickers/sticker.webp", "rb") as sticker:
                         await context.bot.send_sticker(
                             chat_id=update.message.chat.id, sticker=sticker
                         )
@@ -810,7 +810,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         chat_id=update.message.chat.id,
                         text="Не знаю как, но нужно закрыть рейд на 100%!",
                     )
-                    with open("frog.mp4", "rb") as video:
+                    with open("stickers/frog.mp4", "rb") as video:
                         await context.bot.send_video(
                             chat_id=update.message.chat.id, video=video
                         )

@@ -1310,7 +1310,8 @@ async def handle_text(
                             text="Ану быстро в рейд! Кто последний тот ЛОХ!)",
                         )
                         with open(
-                            working_folder + "AnimatedSticker.tgs", "rb"
+                            working_folder + "media_files\AnimatedSticker.tgs",
+                            "rb",
                         ) as sticker:
                             await context.bot.send_sticker(
                                 chat_id=update.message.chat.id, sticker=sticker
@@ -1322,7 +1323,7 @@ async def handle_text(
                             "купленным билетам",
                         )
                         with open(
-                            working_folder + "sticker.webp", "rb"
+                            working_folder + "media_files\sticker.webp", "rb"
                         ) as sticker:
                             await context.bot.send_sticker(
                                 chat_id=update.message.chat.id, sticker=sticker
@@ -1338,7 +1339,9 @@ async def handle_text(
                             chat_id=update.message.chat.id,
                             text="Не знаю как, но нужно закрыть рейд на 100%!",
                         )
-                        with open(working_folder + "frog.mp4", "rb") as video:
+                        with open(
+                            working_folder + "media_files/frog.mp4", "rb"
+                        ) as video:
                             await context.bot.send_video(
                                 chat_id=update.message.chat.id, video=video
                             )

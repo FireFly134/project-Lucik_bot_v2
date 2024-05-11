@@ -1,6 +1,3 @@
-# coding=UTF-8
-#
-#
 import logging
 from datetime import datetime, timedelta
 import pandas as pd
@@ -9,173 +6,156 @@ from sqlalchemy import create_engine
 import telegram
 from threading import Thread
 
-from work import *
+from send_query_sql import insert_and_update_sql
+from work import url_engine, TELEGRAM_TOKEN
 
-#########################################################
-### настройка лога, прописываем куда будет помещаться ###
-#########################################################
+
 logging.basicConfig(
-    filename=working_folder + "send_msg_errors.log",
-    filemode="a",
     level=logging.INFO,
     format="%(asctime)s %(process)d-%(levelname)s %(message)s",
     datefmt="%d-%b-%y %H:%M:%S",
 )
-#########################################################
-#########################################################
-#########################################################
 
-engine = create_engine(db)
+engine = create_engine(url_engine)
 
-bot = telegram.Bot(
-    TOKEN
-)  # - эта строка используется только когда мы используем отдельный файл чисто для отправки (смс, документов...) оповещения, тут она не нужно
+bot = telegram.Bot(TELEGRAM_TOKEN)
 
 
-def reminder_kz():
+def correction_name(name) -> str:
+    return (
+        str(name)
+        .replace("_", "\_")
+        .replace("*", "\*")
+        .replace("[", "\[")
+        .replace("]", "\]")
+        .replace("(", "\(")
+        .replace(")", "\)")
+        .replace("`", "\`")
+        .replace("~", "\~")
+        .replace(">", "\>")
+        .replace("#", "\#")
+        .replace("+", "\+")
+        .replace("=", "\=")
+        .replace("-", "\-")
+        .replace("|", "\|")
+        .replace("{", "\{")
+        .replace("}", "\}")
+        .replace(".", "\.")
+        .replace("!", "\!")
+    )
+
+
+def update_clan_task(
+    info: pd.DataFrame,
+    name_column: str = "time_change_kz",
+    clan_chat: bool = False,
+) -> None:
     time_kz = time + timedelta(hours=1)
-    info_heroes_of_users = pd.read_sql(
-        f"SELECT id, rock, user_id, name, time_change_kz, subscription_rock, description_of_the_kz FROM heroes_of_users;",
-        engine,
-    )
-    # info_clans_kz = pd.read_sql(f"SELECT chat_id FROM clans WHERE time_kz = '{int(time_kz.strftime('%H'))}' AND chat_id IS NOT NULL;", engine)
-    info_clans = pd.read_sql(
-        f"SELECT * FROM clans WHERE start = 'True' AND chat_id IS NOT NULL;",
-        engine,
-    )
-
-    info_kz = info_heroes_of_users[
-        info_heroes_of_users["time_change_kz"] == int(time_kz.strftime("%H"))
-    ]
+    # Ищем героев (клан чат) у которых смена КЗ через час
+    info_kz = info[info[name_column] == int(time_kz.strftime("%H"))]
+    # И одновременно они подписан на напоминалку
     info_kz = info_kz[info_kz["subscription_rock"] == 1]
-    info_kz_info = info_heroes_of_users[
-        info_heroes_of_users["time_change_kz"] == int(time.strftime("%H"))
-    ]
-    info_kz_zero = info_kz_info[info_kz_info["rock"] > 0]
-    info_kz_info = info_kz_info[info_kz_info["description_of_the_kz"] == 1]
-
-    ### Напоминание в личку про смену КЗ ###
-    if len(info_kz) != 0:
+    # Напоминание про смену КЗ
+    if not info_kz.empty:
         logging.info(f"info_kz GO = {len(info_kz)}")
+        logging.info(f"{clan_chat=}")
         for idx, row in info_kz.iterrows():
+            sms = "До смены кланового задания остался 1 час!"
+            if not clan_chat:
+                sms += f" ({row['name']})"
             t = Thread(
                 target=send_msg,
                 args=(
                     row["user_id"],
-                    f"До смены кланового задания остался 1 час! ({row['name']})",
+                    sms,
                 ),
             )
             t.start()
             logging.info(f"info_kz START idx = {idx}")
             t.join()
             logging.info(f"info_kz END idx = {idx}")
+    return
 
-    # if len(info_kz_zero) != 0:
-    #     logging.info(f"info_kz_zero GO = {len(info_kz_zero)}")
-    #     list_to_zero = [str(id_hero) for id_hero in info_kz_zero['id'].tolist()]
-    #     engine.execute(f"UPDATE heroes_of_users SET rock = '0' WHERE id in {str(list_to_zero).replace('[','(').replace(']',')')};")
 
-    if len(info_kz_info) != 0:
-        logging.info(f"info_kz_info GO = {len(info_kz_info)}")
+def information_about_new_clan_task(
+    info: pd.DataFrame,
+    name_column: str = "time_change_kz",
+    clan_chat: bool = False,
+) -> None:
+    # Ищем героев или чат у которых смена сейчас КЗ
+    info_kz_description = info[info[name_column] == int(time.strftime("%H"))]
+    # И одновременно они подписан на описание заданий
+    info_kz_description = info_kz_description[
+        info_kz_description["description_of_the_kz"] == 1
+    ]
+    if not info_kz_description.empty:
+        logging.info(f"info_kz_description GO = {len(info_kz_description)}")
         info = pd.read_sql(
-            f"SELECT text FROM text_table WHERE name_text = '{int(time.strftime('%w'))}';",
-            engine,
+            "SELECT text FROM text_table " "WHERE name_text = %(time)s;",
+            params={"time": int(time.strftime("%w"))},
+            con=engine,
         )
-        if len(info) != 0:
-            for idx, row in info_kz_info.iterrows():
-                name = (
-                    str(row["name"])
-                    .replace("_", "\_")
-                    .replace("*", "\*")
-                    .replace("[", "\[")
-                    .replace("]", "\]")
-                    .replace("(", "\(")
-                    .replace(")", "\)")
-                    .replace("`", "\`")
-                    .replace("~", "\~")
-                    .replace(">", "\>")
-                    .replace("#", "\#")
-                    .replace("+", "\+")
-                    .replace("=", "\=")
-                    .replace("-", "\-")
-                    .replace("|", "\|")
-                    .replace("{", "\{")
-                    .replace("}", "\}")
-                    .replace(".", "\.")
-                    .replace("!", "\!")
-                )
+        if not info.empty:
+            for idx, row in info_kz_description.iterrows():
+                sms = ""
+                if not clan_chat:
+                    sms += f"{correction_name(row['name'])}\!\n"
+                    chat_id = row["user_id"]
+                else:
+                    chat_id = row["chat_id"]
+                sms += str(info.loc[0, "text"])
                 t = Thread(
-                    target=send_msg_MarkdownV2,
+                    target=send_msg,
                     args=(
-                        row["user_id"],
-                        f"{name}\!\n{info.loc[0, 'text']}",
+                        chat_id,
+                        sms,
                     ),
                 )
                 t.start()
-                logging.info(f"info_kz_info START idx = {idx}")
+                logging.info(f"info_kz_description START idx = {idx}")
                 t.join()
-                logging.info(f"info_kz_info END idx = {idx}")
-
-    ### Напоминание в чат про смену КЗ ###
-    info_clans_kz = info_clans[
-        info_clans["time_kz"] == int(time_kz.strftime("%H"))
-    ]
-    info_clans_kz = info_clans_kz[info_clans_kz["subscription_rock"] == 1]
-    if len(info_clans_kz) != 0:
-        logging.info(f"info_clans_kz GO = {len(info_clans_kz)}")
-        for idx, row in info_clans_kz.iterrows():
-            t = Thread(
-                target=send_msg,
-                args=(
-                    row["chat_id"],
-                    "До смены кланового задания остался 1 час!",
-                ),
-            )
-            t.start()
-            logging.info(f"info_clans_kz START idx = {idx}")
-            t.join()
-            logging.info(f"info_clans_kz END idx = {idx}")
-
-    ### Описание нового КЗ в чат ###
-    info_clans_description_of_the_kz = info_clans[
-        info_clans["time_kz"] == int(time.strftime("%H"))
-    ]
-    info_clans_description_of_the_kz = info_clans_description_of_the_kz[
-        info_clans_description_of_the_kz["description_of_the_kz"] == 1
-    ]
-    if len(info_clans_description_of_the_kz) != 0:
-        logging.info(
-            f"info_clans_description_of_the_kz GO = {len(info_clans_description_of_the_kz)}"
-        )
-        info = pd.read_sql(
-            f"SELECT text FROM text_table WHERE name_text = '{int(time.strftime('%w'))}';",
-            engine,
-        )
-        if len(info) != 0:
-            for idx, row in info_clans_description_of_the_kz.iterrows():
-                t = Thread(
-                    target=send_msg_MarkdownV2,
-                    args=(
-                        row["chat_id"],
-                        f"{info.loc[0, 'text']}",
-                    ),
-                )
-                t.start()
-                logging.info(
-                    f"info_clans_description_of_the_kz START idx = {idx}"
-                )
-                t.join()
-                logging.info(
-                    f"info_clans_description_of_the_kz END idx = {idx}"
-                )
+                logging.info(f"info_kz_description END idx = {idx}")
+    return
 
 
-def reminder_zero(text="До обнуления камушков остался 1 час!"):
-    info_clans = pd.read_sql(
-        f"SELECT * FROM clans WHERE start = 'True' AND remain_zero_rock = 'True' AND chat_id IS NOT NULL;",
+def reminder_kz() -> None:
+    time_kz = time + timedelta(hours=1)
+
+    # Получаем данные по всем героям
+    info_heroes_of_users = pd.read_sql(
+        "SELECT id, rock, user_id, name, time_change_kz, "
+        "   subscription_rock, description_of_the_kz "
+        "FROM heroes_of_users"
+        "WHERE subscription_rock = 'true' OR description_of_the_kz = 'true';",
         engine,
     )
-    ### Напоминание в чат про смену КЗ ###
+
+    # Получаем данные по всем кланам
+    info_clans = pd.read_sql(
+        "SELECT * FROM clans " "WHERE start = 'True' AND chat_id IS NOT NULL;",
+        engine,
+    )
+
+    # Оповещение об обновлении в личку игрокам
+    update_clan_task(info_heroes_of_users)
+    information_about_new_clan_task(info_heroes_of_users)
+
+    # Оповещение об обновлении в клан чате
+    update_clan_task(info_clans, name_column="time_kz", clan_chat=True)
+    information_about_new_clan_task(
+        info_clans, name_column="time_kz", clan_chat=True
+    )
+
+
+def reminder_zero(text="До обнуления камушков остался 1 час!") -> None:
+    info_clans = pd.read_sql(
+        "SELECT * FROM clans "
+        "WHERE start = 'True'"
+        " AND remain_zero_rock = 'True'"
+        " AND chat_id IS NOT NULL;",
+        engine,
+    )
+    # Напоминание в чат про смену КЗ
     for idx, row in info_clans.iterrows():
         t = Thread(
             target=send_msg,
@@ -190,62 +170,54 @@ def reminder_zero(text="До обнуления камушков остался 
         logging.info(f"reminder_zero_Clan END idx = {idx}")
 
 
-def clear_rock():
+def clear_rock() -> None:
     info_heroes_of_users = pd.read_sql(
-        f"SELECT id FROM heroes_of_users WHERE rock > 0;", engine
+        "SELECT id FROM heroes_of_users WHERE rock > 0;", engine
     )
     logging.info(f"clear_rock GO = {len(info_heroes_of_users)}")
-    list_id_hero = list(set(info_heroes_of_users["id"].tolist()))
-    list_to_zero = [str(id_hero) for id_hero in list_id_hero]
-    engine.execute(
-        f"UPDATE heroes_of_users SET rock = '0' WHERE id in {str(list_to_zero).replace('[', '(').replace(']', ')')};"
+    list_id_hero = info_heroes_of_users["id"].to_list()
+    # list_id_hero = list(set(info_heroes_of_users["id"].tolist()))
+    # list_to_zero = [str(id_hero) for id_hero in list_id_hero]
+    str_list_to_zero = str(list_id_hero).replace("[", "(").replace("]", ")")
+    insert_and_update_sql(
+        "UPDATE heroes_of_users SET rock = '0' "
+        f"WHERE id in {str_list_to_zero};"
     )
     reminder_zero(text="Камушки обнулились. Пора набивать новые!😎")
 
 
-def reminder_energy():
+def reminder_energy() -> None:
+    """Проверяем в БД кто подписан на напоминалку по энергии
+    и кому пора напоминать"""
     time2_energy = time - timedelta(hours=6)
     time3_energy = time - timedelta(hours=9)
-    # info_energy = pd.read_sql(f"SELECT user_id, name FROM heroes_of_users WHERE (time_collection_energy = '{int(time.strftime('%H'))}' OR time_collection_energy = '{int(time2_energy.strftime('%H'))}' OR time_collection_energy = '{int(time3_energy.strftime('%H'))}') AND subscription_energy = '1';", engine)
     info_energy = pd.read_sql(
-        f"SELECT user_id, name FROM heroes_of_users WHERE (time_collection_energy = '{int(time.strftime('%H'))}' OR time_collection_energy = '{int(time2_energy.strftime('%H'))}' OR time_collection_energy = '{int(time3_energy.strftime('%H'))}') AND subscription_energy = 'True';",
-        engine,
+        "SELECT user_id, name FROM heroes_of_users "
+        "WHERE (time_collection_energy = %(time)s"
+        " OR time_collection_energy = %(time2_energy)s"
+        " OR time_collection_energy = %(time3_energy)s)"
+        " AND subscription_energy = 'True';",
+        params={
+            "time": int(time.strftime("%H")),
+            "time2_energy": int(time2_energy.strftime("%H")),
+            "time3_energy": int(time3_energy.strftime("%H")),
+        },
+        con=engine,
     )
-    if len(info_energy) != 0:
-        for idx, row in info_energy.iterrows():
-            name = (
-                str(row["name"])
-                .replace("_", "\_")
-                .replace("*", "\*")
-                .replace("[", "\[")
-                .replace("]", "\]")
-                .replace("(", "\(")
-                .replace(")", "\)")
-                .replace("`", "\`")
-                .replace("~", "\~")
-                .replace(">", "\>")
-                .replace("#", "\#")
-                .replace("+", "\+")
-                .replace("=", "\=")
-                .replace("-", "\-")
-                .replace("|", "\|")
-                .replace("{", "\{")
-                .replace("}", "\}")
-                .replace(".", "\.")
-                .replace("!", "\!")
-            )
-            t = Thread(
-                target=send_msg_MarkdownV2,
-                args=(
-                    row["user_id"],
-                    f"*Зайди в игру и забери халявную энергию*\. \({name}\)",
-                ),
-            )
-            t.start()
-            t.join()
+    for idx, row in info_energy.iterrows():
+        name = correction_name(row["name"])
+        t = Thread(
+            target=send_msg_markdown_v2,
+            args=(
+                row["user_id"],
+                f"*Зайди в игру и забери халявную энергию*\. \({name}\)",
+            ),
+        )
+        t.start()
+        t.join()
 
 
-def send_msg(user_id, sms):
+def send_msg(user_id, sms) -> None:
     try:
         bot.send_message(chat_id=user_id, text=sms)
     except Exception as err:
@@ -253,8 +225,12 @@ def send_msg(user_id, sms):
         logging.info(f"Пользователь с id = {user_id}")
 
 
-def send_msg_MarkdownV2(user_id, sms):
-    "In all other places characters '_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!' must be escaped with the preceding character ''."
+def send_msg_markdown_v2(user_id, sms) -> None:
+    """
+    In all other places characters
+    '_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|',
+    '{', '}', '.', '!' must be escaped with the preceding character ''.
+    """
     try:
         bot.send_message(chat_id=user_id, text=sms, parse_mode="MarkdownV2")
     except Exception as err:
@@ -264,7 +240,7 @@ def send_msg_MarkdownV2(user_id, sms):
 
 if __name__ == "__main__":
     time = datetime.now()  # текущее время
-    ### Проверка на наличия энергии по времени для подписчиков ###
+    # Проверка на наличия энергии по времени для подписчиков
     if int(time.strftime("%M")) == 0:
         reminder_energy()
         if int(time.strftime("%H")) == 14:
